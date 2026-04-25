@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>대권님의 2인 1조 토너먼트 생성기</title>
+    <style>
+        body { font-family: 'Malgun Gothic', sans-serif; background-color: #f4f7f6; padding: 20px; }
+        h1 { color: #333; text-align: center; }
+        .container { max-width: 900px; margin: 0 auto; }
+        .input-section { text-align: center; margin-bottom: 20px; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        textarea { width: 80%; height: 120px; padding: 10px; font-size: 14px; border: 1px solid #ccc; border-radius: 4px; }
+        button { padding: 12px 24px; background-color: #28a745; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; margin-top: 15px; font-weight: bold; }
+        button:hover { background-color: #218838; }
+        
+        /* 편성된 조 목록 디자인 */
+        .teams-section { margin-bottom: 30px; text-align: center; }
+        .team-badge { display: inline-block; background-color: #e9ecef; padding: 8px 15px; margin: 5px; border-radius: 20px; font-weight: bold; border: 1px solid #ced4da; }
+        
+        /* 대진표 디자인 */
+        .bracket-container { display: flex; justify-content: center; margin-top: 20px; overflow-x: auto; padding-bottom: 20px; }
+        .round { display: flex; flex-direction: column; justify-content: space-around; margin: 0 20px; }
+        .match { background-color: white; border: 2px solid #343a40; border-radius: 5px; margin: 15px 0; width: 180px; text-align: center; box-shadow: 2px 2px 5px rgba(0,0,0,0.1); }
+        .team { padding: 12px; border-bottom: 1px solid #eee; font-weight: bold; font-size: 14px; }
+        .team:last-child { border-bottom: none; }
+        .bye { color: #868e96; font-style: italic; font-weight: normal; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>🏆 2인 1조 랜덤 토너먼트 생성기</h1>
+        
+        <div class="input-section">
+            <p><strong>1단계:</strong> 참여자의 이름을 한 줄에 한 명씩 입력하세요.</p>
+            <textarea id="peopleInput" placeholder="예시:&#10;김철수&#10;이영희&#10;박지성&#10;손흥민&#10;이강인"></textarea><br>
+            <button onclick="generateRandomPairsAndBracket()">2인 1조 결성 및 대진표 짜기</button>
+        </div>
+
+        <div id="teamsOutput" class="teams-section"></div>
+
+        <div id="bracketOutput" class="bracket-container"></div>
+    </div>
+
+    <script>
+        function generateRandomPairsAndBracket() {
+            // 1. 사람 이름 가져오기
+            const inputText = document.getElementById('peopleInput').value;
+            let people = inputText.split('\n').map(p => p.trim()).filter(p => p !== '');
+            
+            // 토너먼트를 하려면 최소 3명(2개 조) 이상 필요
+            if (people.length < 3) {
+                alert('최소 3명 이상 입력해야 2개 이상의 조가 만들어져 대진표를 짤 수 있습니다!');
+                return;
+            }
+
+            // 무작위로 사람 섞기
+            people.sort(() => Math.random() - 0.5);
+
+            // 2. 2인 1조 팀 만들기
+            let teams = [];
+            let teamHtml = '<h3>🎲 랜덤 결성된 조 목록</h3>';
+            
+            for (let i = 0; i < people.length; i += 2) {
+                let teamName = '';
+                if (people[i + 1]) {
+                    // 짝수가 맞아 2명이 한 조가 되는 경우
+                    teamName = `${people[i]} & ${people[i+1]}`;
+                } else {
+                    // 인원이 홀수라서 마지막 한 명이 남는 경우
+                    teamName = `${people[i]} (1인)`;
+                }
+                teams.push(teamName);
+                teamHtml += `<span class="team-badge">${teamName}</span>`;
+            }
+            
+            // 화면에 만들어진 조 보여주기
+            document.getElementById('teamsOutput').innerHTML = teamHtml;
+
+            // 3. 만들어진 조를 바탕으로 대진표 짜기 (부전승 계산 포함)
+            let bracketSize = 1;
+            while (bracketSize < teams.length) {
+                bracketSize *= 2;
+            }
+            const byes = bracketSize - teams.length;
+
+            let round1Matches = [];
+            let currentTeamIndex = 0;
+
+            // 부전승(Bye) 자리 먼저 배정
+            for (let i = 0; i < byes; i++) {
+                round1Matches.push([teams[currentTeamIndex], '부전승 (Bye)']);
+                currentTeamIndex++;
+            }
+            // 나머지 팀 매칭
+            while (currentTeamIndex < teams.length) {
+                round1Matches.push([teams[currentTeamIndex], teams[currentTeamIndex + 1]]);
+                currentTeamIndex += 2;
+            }
+
+            // 화면에 대진표 그리기 함수 호출
+            drawBracket(round1Matches);
+        }
+
+        function drawBracket(firstRound) {
+            const container = document.getElementById('bracketOutput');
+            container.innerHTML = ''; 
+
+            let currentMatches = firstRound;
+
+            while (currentMatches.length >= 1) {
+                const roundDiv = document.createElement('div');
+                roundDiv.className = 'round';
+                
+                let nextMatches = [];
+
+                for (let i = 0; i < currentMatches.length; i++) {
+                    const matchDiv = document.createElement('div');
+                    matchDiv.className = 'match';
+                    
+                    const team1 = currentMatches[i][0] || '?';
+                    const team2 = currentMatches[i][1] || '?';
+                    
+                    matchDiv.innerHTML = `
+                        <div class="team ${team1.includes('부전승') ? 'bye' : ''}">${team1}</div>
+                        <div class="team ${team2.includes('부전승') ? 'bye' : ''}">${team2}</div>
+                    `;
+                    roundDiv.appendChild(matchDiv);
+
+                    if (i % 2 === 1) {
+                        nextMatches.push(['?', '?']);
+                    } else if (i === currentMatches.length - 1) {
+                         nextMatches.push(['?', '?']); 
+                    }
+                }
+                
+                container.appendChild(roundDiv);
+                
+                if (currentMatches.length === 1) break; 
+                
+                currentMatches = nextMatches;
+            }
+        }
+    </script>
+</body>
+</html>
